@@ -1,5 +1,5 @@
 use super::Action;
-use bevy::ecs::system::SystemParamItem;
+use bevy::ecs::system::{ParamSet, SystemParamItem};
 use std::{marker::PhantomData, task::Poll};
 
 pub struct Map<A, O, F, B> {
@@ -28,21 +28,21 @@ where
 {
     type In = A::In;
 
-    type Params = (A::Params, B::Params);
+    type Params = ParamSet<'static, 'static, (A::Params, B::Params)>;
 
     type Out = B::Out;
 
     fn perform(
         &mut self,
         input: Self::In,
-        params: SystemParamItem<Self::Params>,
+        mut params: SystemParamItem<Self::Params>,
     ) -> Poll<Option<Self::Out>> {
         if let Some(ref mut next) = self.next {
-            match next.perform((), params.1) {
+            match next.perform((), params.p1()) {
                 Poll::Ready(None) => {
                     self.next = None;
 
-                    match self.action.perform(input, params.0) {
+                    match self.action.perform(input, params.p0()) {
                         Poll::Ready(Some(out)) => {
                             self.next = Some((self.f)(out));
                             Poll::Pending
@@ -54,7 +54,7 @@ where
                 poll => poll,
             }
         } else {
-            match self.action.perform(input, params.0) {
+            match self.action.perform(input, params.p0()) {
                 Poll::Ready(Some(out)) => {
                     self.next = Some((self.f)(out));
                     Poll::Pending

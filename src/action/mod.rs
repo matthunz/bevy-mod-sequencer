@@ -98,7 +98,7 @@ where
 pub fn animate<T>(from: T, to: T, duration: Duration) -> Animate<T> {
     Animate {
         from,
-        to,
+        to: Some(to),
         start: None,
         duration,
     }
@@ -106,7 +106,7 @@ pub fn animate<T>(from: T, to: T, duration: Duration) -> Animate<T> {
 
 pub struct Animate<T> {
     from: T,
-    to: T,
+    to: Option<T>,
     start: Option<f32>,
     duration: Duration,
 }
@@ -123,15 +123,20 @@ impl<T: Animatable> Action for Animate<T> {
         _input: Self::In,
         params: SystemParamItem<Self::Params>,
     ) -> Poll<Option<Self::Out>> {
-        let start = *self.start.get_or_insert_with(|| params.elapsed_seconds());
-        let elapsed = params.elapsed_seconds() - start;
-
-        if elapsed < self.duration.as_secs_f32() {
-            let t = elapsed / self.duration.as_secs_f32();
-            Poll::Ready(Some(T::interpolate(&self.from, &self.to, t)))
+        if let Some(ref to) = self.to {
+            let start = *self.start.get_or_insert_with(|| params.elapsed_seconds());
+            let elapsed = params.elapsed_seconds() - start;
+    
+            if elapsed < self.duration.as_secs_f32() {
+                let t = elapsed / self.duration.as_secs_f32();
+                Poll::Ready(Some(T::interpolate(&self.from, to, t)))
+            } else {
+                Poll::Ready(Some(self.to.take().unwrap()))
+            }
         } else {
             Poll::Ready(None)
         }
+       
     }
 }
 
