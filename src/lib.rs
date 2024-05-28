@@ -1,6 +1,6 @@
 use action::{Action, AnyAction};
 use bevy::{ecs::system::SystemId, prelude::*};
-use std::collections::VecDeque;
+use std::{collections::VecDeque, task::Poll};
 
 pub mod action;
 
@@ -38,7 +38,7 @@ fn run_sequencer(world: &mut World) {
 
     for (entity, mut action) in new {
         let id = world.register_system(move |world: &mut World| {
-            if action.perform_any((), world).is_some() {
+            if action.perform_any((), world) == Poll::Ready(None) {
                 let mut sequencer = world.get_mut::<Sequencer>(entity).unwrap();
                 sequencer.pending.pop_front();
             }

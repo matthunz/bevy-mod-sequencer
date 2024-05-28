@@ -10,14 +10,14 @@ struct Slider;
 
 fn action() -> impl Action<In = (), Out = ()> {
     action::animate(0f32, 100., Duration::from_secs(1))
-        .map(action::from_fn(|In(n)| n * 2.))
-        .for_each(action::from_fn(
-            |In(x), mut query: Query<&mut Transform, With<Slider>>| {
+        .map(|n| action::from_fn(move || n * 2.))
+        .map(|n| {
+            action::from_fn(move |mut query: Query<&mut Transform, With<Slider>>| {
                 for mut transform in &mut query {
-                    transform.translation.x = x;
+                    transform.translation.x = n;
                 }
-            },
-        ))
+            })
+        })
 }
 
 fn main() {
