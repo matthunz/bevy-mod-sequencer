@@ -1,5 +1,8 @@
-use bevy::{ecs::system::RunSystemOnce, prelude::*};
-use bevy_mod_sequencer::action::{self, Action};
+use bevy::{prelude::*};
+use bevy_mod_sequencer::{
+    action::{self, Action},
+    Sequencer, SequencerPlugin,
+};
 use std::time::Duration;
 
 fn action() -> impl Action<In = (), Out = ()> {
@@ -10,21 +13,13 @@ fn action() -> impl Action<In = (), Out = ()> {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup(action()))
+        .add_plugins((DefaultPlugins, SequencerPlugin))
+        .add_systems(Startup, setup)
         .run();
 }
 
-fn setup<A>(action: A) -> impl FnMut(&mut World)
-where
-    A: Action<In = (), Out = ()> + Send + Sync + 'static,
-    A::Params: 'static,
-{
-    let mut action_cell = Some(action);
-    move |world| {
-        let mut action = action_cell.take().unwrap();
-        world.run_system_once(move |mut params: ParamSet<(A::Params,)>| {
-            action.perform((), params.p0());
-        });
-    }
+fn setup(mut commands: Commands) {
+    let mut sequencer = Sequencer::default();
+    sequencer.push(action());
+    commands.spawn(sequencer);
 }

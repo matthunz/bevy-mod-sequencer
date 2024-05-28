@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::system::{SystemParam, SystemParamItem},
+    ecs::system::{SystemParam, SystemParamItem, SystemState},
     prelude::*,
 };
 use std::{marker::PhantomData, time::Duration};
@@ -24,9 +24,32 @@ pub trait Action {
     {
         Map {
             action: self,
-            f ,
+            f,
             _marker: PhantomData,
         }
+    }
+}
+
+pub trait AnyAction: Send + Sync {
+    type In;
+
+    type Out;
+
+    fn perform_any(&mut self, input: Self::In, world: &mut World) -> Option<Self::Out>;
+}
+
+impl<A> AnyAction for A
+where
+    A: Action + Send + Sync,
+    A::Params: 'static,
+{
+    type In = A::In;
+
+    type Out = A::Out;
+
+    fn perform_any(&mut self, input: Self::In, world: &mut World) -> Option<Self::Out> {
+        let mut state = SystemState::<A::Params>::new(world);
+        self.perform(input, state.get_mut(world))
     }
 }
 
