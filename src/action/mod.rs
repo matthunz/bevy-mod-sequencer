@@ -29,7 +29,6 @@ pub trait Action {
     }
 }
 
-
 pub trait AnyAction: Send + Sync {
     type In;
 
@@ -132,6 +131,70 @@ impl<T: Animatable> Action for Animate<T> {
             Poll::Ready(Some(T::interpolate(&self.from, &self.to, t)))
         } else {
             Poll::Ready(None)
+        }
+    }
+}
+
+pub fn from_iter<A>(iter: impl IntoIterator<Item = A>) -> FromIter<A> {
+    FromIter {
+        actions: iter.into_iter().map(Some).collect(),
+        idx: 0,
+    }
+}
+
+pub struct FromIter<A> {
+    actions: Vec<Option<A>>,
+    idx: usize,
+}
+
+impl<A> Action for FromIter<A>
+where
+    A: Action<Out = ()>,
+{
+    type In = A::In;
+
+    type Params = A::Params;
+
+    type Out = ();
+
+    fn perform(
+        &mut self,
+        input: Self::In,
+        params: SystemParamItem<Self::Params>,
+    ) -> Poll<Option<Self::Out>> {
+        let mut idx = self.idx;
+        let mut is_done = true;
+
+        while let Some(cell) = self.actions.get_mut(idx) {
+            if let Some(action) = cell {
+                match action.perform(input, params) {
+                    Poll::Ready(None) => *cell = None,
+                    _ => {}
+                }
+
+                self.idx = if idx + 1 >= self.actions.len() {
+                    0
+                } else {
+                    idx + 1
+                };
+
+                is_done = false;
+                break;
+            }
+
+            idx += 1;
+        }
+
+        if is_done {
+            Poll::Ready(None)
+        } else {
+            self.idx = if idx + 1 >= self.actions.len() {
+                0
+            } else {
+                idx + 1
+            };
+
+            Poll::Pending
         }
     }
 }
