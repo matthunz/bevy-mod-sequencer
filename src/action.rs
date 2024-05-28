@@ -17,16 +17,12 @@ pub trait Action {
         params: SystemParamItem<Self::Params>,
     ) -> Option<Self::Out>;
 
-    fn map<F, R>(self, f: F) -> Map<Self, F, R>
+    fn map<F>(self, f: F) -> Map<Self, F>
     where
         Self: Sized,
-        F: FnMut(Self::Out) -> R,
+        F: Action<In = Self::Out>,
     {
-        Map {
-            action: self,
-            f,
-            _marker: PhantomData,
-        }
+        Map { action: self, f }
     }
 
     fn for_each<F>(self, f: F) -> ForEach<Self, F>
@@ -135,29 +131,30 @@ impl<T: Animatable> Action for Animate<T> {
     }
 }
 
-pub struct Map<A, F, R> {
+pub struct Map<A, F> {
     action: A,
     f: F,
-    _marker: PhantomData<R>,
 }
 
-impl<A, F, R> Action for Map<A, F, R>
+impl<A, F> Action for Map<A, F>
 where
     A: Action,
-    F: FnMut(A::Out) -> R,
+    F: Action<In = A::Out>,
 {
     type In = A::In;
 
-    type Params = A::Params;
+    type Params = (A::Params, F::Params);
 
-    type Out = R;
+    type Out = F::Out;
 
     fn perform(
         &mut self,
         input: Self::In,
         params: SystemParamItem<Self::Params>,
     ) -> Option<Self::Out> {
-        self.action.perform(input, params).map(|out| (self.f)(out))
+        self.action
+            .perform(input, params.0)
+            .and_then(|out| self.f.perform(out, params.1))
     }
 }
 
@@ -188,7 +185,6 @@ where
             .map(|out| self.f.perform(out, params.1))
             .is_none()
         {
-            dbg!("done!");
             Some(())
         } else {
             None

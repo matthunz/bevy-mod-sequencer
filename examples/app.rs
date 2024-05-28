@@ -9,13 +9,15 @@ use std::time::Duration;
 struct Slider;
 
 fn action() -> impl Action<In = (), Out = ()> {
-    action::animate(0., 100., Duration::from_secs(1)).for_each(action::from_fn(
-        |In(x), mut query: Query<&mut Transform, With<Slider>>| {
-            for mut transform in &mut query {
-                transform.translation.x = x;
-            }
-        },
-    ))
+    action::animate(0f32, 100., Duration::from_secs(1))
+        .map(action::from_fn(|In(n)| n * 2.))
+        .for_each(action::from_fn(
+            |In(x), mut query: Query<&mut Transform, With<Slider>>| {
+                for mut transform in &mut query {
+                    transform.translation.x = x;
+                }
+            },
+        ))
 }
 
 fn main() {
