@@ -26,10 +26,14 @@ impl Sequencer {
 
 fn run_sequencer(world: &mut World) {
     let mut new = Vec::new();
+    let mut pending = Vec::new();
+
     for (entity, mut sequencer) in world.query::<(Entity, &mut Sequencer)>().iter_mut(world) {
         if let Some(action) = sequencer.actions.pop_front() {
             new.push((entity, action));
         }
+
+        pending.extend(sequencer.pending.iter().cloned());
     }
 
     for (entity, mut action) in new {
@@ -42,10 +46,10 @@ fn run_sequencer(world: &mut World) {
 
         let mut sequencer = world.get_mut::<Sequencer>(entity).unwrap();
         sequencer.pending.push_back(id);
-        let pending = sequencer.pending.clone();
+        pending.push(id);
+    }
 
-        if let Some(id) = pending.front() {
-            world.run_system(*id).unwrap();
-        }
+    for id in pending {
+        world.run_system(id).unwrap();
     }
 }

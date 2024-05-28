@@ -28,6 +28,14 @@ pub trait Action {
             _marker: PhantomData,
         }
     }
+
+    fn for_each<F>(self, f: F) -> ForEach<Self, F>
+    where
+        Self: Sized,
+        F: Action<In = Self::Out, Out = ()>,
+    {
+        ForEach { action: self, f }
+    }
 }
 
 pub trait AnyAction: Send + Sync {
@@ -112,7 +120,7 @@ impl<T: Animatable> Action for Animate<T> {
 
     fn perform(
         &mut self,
-        input: Self::In,
+        _input: Self::In,
         params: SystemParamItem<Self::Params>,
     ) -> Option<Self::Out> {
         let start = *self.start.get_or_insert_with(|| params.elapsed_seconds());
@@ -150,5 +158,40 @@ where
         params: SystemParamItem<Self::Params>,
     ) -> Option<Self::Out> {
         self.action.perform(input, params).map(|out| (self.f)(out))
+    }
+}
+
+pub struct ForEach<A, F> {
+    action: A,
+    f: F,
+}
+
+impl<A, F> Action for ForEach<A, F>
+where
+    A: Action,
+    F: Action<In = A::Out, Out = ()>,
+{
+    type In = A::In;
+
+    type Params = (A::Params, F::Params);
+
+    type Out = ();
+
+    fn perform(
+        &mut self,
+        input: Self::In,
+        params: SystemParamItem<Self::Params>,
+    ) -> Option<Self::Out> {
+        if self
+            .action
+            .perform(input, params.0)
+            .map(|out| self.f.perform(out, params.1))
+            .is_none()
+        {
+            dbg!("done!");
+            Some(())
+        } else {
+            None
+        }
     }
 }
