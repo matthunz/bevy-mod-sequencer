@@ -29,6 +29,7 @@ pub trait Action {
     }
 }
 
+
 pub trait AnyAction: Send + Sync {
     type In;
 
@@ -48,7 +49,9 @@ where
 
     fn perform_any(&mut self, input: Self::In, world: &mut World) -> Poll<Option<Self::Out>> {
         let mut state = SystemState::<A::Params>::new(world);
-        self.perform(input, state.get_mut(world))
+        let poll = self.perform(input, state.get_mut(world));
+        state.apply(world);
+        poll
     }
 }
 
