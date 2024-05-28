@@ -6,7 +6,7 @@ use std::{marker::PhantomData, time::Duration};
 
 pub trait Action {
     type In;
-    
+
     type Params: SystemParam;
 
     type Out;
@@ -16,6 +16,18 @@ pub trait Action {
         input: Self::In,
         params: SystemParamItem<Self::Params>,
     ) -> Option<Self::Out>;
+
+    fn map<F, R>(self, f: F) -> Map<Self, F, R>
+    where
+        Self: Sized,
+        F: FnMut(Self::Out) -> R,
+    {
+        Map {
+            action: self,
+            f ,
+            _marker: PhantomData,
+        }
+    }
 }
 
 pub fn from_fn<F, Marker>(f: F) -> FromFn<F, Marker>
@@ -38,7 +50,7 @@ where
     F: SystemParamFunction<Marker>,
 {
     type In = F::In;
-    
+
     type Params = F::Param;
 
     type Out = F::Out;
@@ -89,5 +101,31 @@ impl<T: Animatable> Action for Animate<T> {
         } else {
             None
         }
+    }
+}
+
+pub struct Map<A, F, R> {
+    action: A,
+    f: F,
+    _marker: PhantomData<R>,
+}
+
+impl<A, F, R> Action for Map<A, F, R>
+where
+    A: Action,
+    F: FnMut(A::Out) -> R,
+{
+    type In = A::In;
+
+    type Params = A::Params;
+
+    type Out = R;
+
+    fn perform(
+        &mut self,
+        input: Self::In,
+        params: SystemParamItem<Self::Params>,
+    ) -> Option<Self::Out> {
+        self.action.perform(input, params).map(|out| (self.f)(out))
     }
 }
