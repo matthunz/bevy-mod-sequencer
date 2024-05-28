@@ -25,6 +25,19 @@ pub trait Action {
         Map { action: self, f }
     }
 
+    fn flat_map<F, B>(self, f: F) -> FlatMap<Self, F, B>
+    where
+        Self: Sized,
+        F: Action<In = Self::Out, Out = B>,
+        B: Action<In = ()>,
+    {
+        FlatMap {
+            action: self,
+            f,
+            _marker: PhantomData,
+        }
+    }
+
     fn for_each<F>(self, f: F) -> ForEach<Self, F>
     where
         Self: Sized,
@@ -155,6 +168,36 @@ where
         self.action
             .perform(input, params.0)
             .and_then(|out| self.f.perform(out, params.1))
+    }
+}
+
+pub struct FlatMap<A, F, B> {
+    action: A,
+    f: F,
+    _marker: PhantomData<B>,
+}
+
+impl<A, F, B> Action for FlatMap<A, F, B>
+where
+    A: Action,
+    F: Action<In = A::Out, Out = B>,
+    B: Action<In = ()>,
+{
+    type In = A::In;
+
+    type Params = (A::Params, F::Params, B::Params);
+
+    type Out = B::Out;
+
+    fn perform(
+        &mut self,
+        input: Self::In,
+        params: SystemParamItem<Self::Params>,
+    ) -> Option<Self::Out> {
+        self.action
+            .perform(input, params.0)
+            .and_then(|out| self.f.perform(out, params.1))
+            .and_then(|mut b| b.perform((), params.2))
     }
 }
 
