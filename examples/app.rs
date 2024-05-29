@@ -9,7 +9,7 @@ use std::time::Duration;
 struct Slider;
 
 fn action() -> impl Action<In = (), Out = ()> {
-    action::animate(0f32, 100., Duration::from_secs(1))
+    action::animate(0f32, 400., Duration::from_secs(10))
         .map(|n| action::from_fn(move || n * 2.))
         .map(|n| {
             action::from_fn(move |mut query: Query<&mut Transform, With<Slider>>| {
@@ -34,15 +34,17 @@ fn setup(mut commands: Commands) {
 
     commands.spawn(Camera2dBundle::default());
 
-    commands.spawn((
-        SpriteBundle {
-            sprite: Sprite {
-                color: Color::rgb(0.25, 0.25, 0.75),
-                custom_size: Some(Vec2::new(50.0, 100.0)),
+    for _ in 0..100 {
+        commands.spawn((
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::rgb(0.25, 0.25, 0.75),
+                    custom_size: Some(Vec2::new(50.0, 100.0)),
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        },
-        Slider,
-    ));
+            Slider,
+        ));
+    }
 }

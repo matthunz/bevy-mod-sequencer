@@ -20,7 +20,11 @@ pub struct Sequencer {
 
 impl Sequencer {
     pub fn push(&mut self, action: impl Action<In = (), Out = ()> + Send + Sync + 'static) {
-        self.actions.push_back(Box::new(action));
+        self.push_boxed(Box::new(action));
+    }
+
+    pub fn push_boxed(&mut self, action: Box<dyn AnyAction<In = (), Out = ()>>) {
+        self.actions.push_back(action);
     }
 }
 
@@ -29,24 +33,28 @@ fn run_sequencer(world: &mut World) {
     let mut pending = Vec::new();
 
     for (entity, mut sequencer) in world.query::<(Entity, &mut Sequencer)>().iter_mut(world) {
-        if let Some(action) = sequencer.actions.pop_front() {
+        while let Some(action) = sequencer.actions.pop_front() {
             new.push((entity, action));
         }
 
-        pending.extend(sequencer.pending.iter().cloned());
+        pending.extend(sequencer.pending.front().cloned());
     }
 
     for (entity, mut action) in new {
-        let id = world.register_system(move |world: &mut World| {
-            if action.perform_any((), world) == Poll::Ready(None) {
-                let mut sequencer = world.get_mut::<Sequencer>(entity).unwrap();
-                sequencer.pending.pop_front();
+        let id = world.register_system(move |world: &mut World| loop {
+            match action.perform_any((), world) {
+                Poll::Ready(Some(())) => break,
+                Poll::Ready(None) => {
+                    let mut sequencer = world.get_mut::<Sequencer>(entity).unwrap();
+                    sequencer.pending.pop_front();
+                    break;
+                }
+                Poll::Pending => {},
             }
         });
 
         let mut sequencer = world.get_mut::<Sequencer>(entity).unwrap();
         sequencer.pending.push_back(id);
-        pending.push(id);
     }
 
     for id in pending {

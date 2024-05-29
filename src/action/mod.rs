@@ -126,7 +126,7 @@ impl<T: Animatable> Action for Animate<T> {
         if let Some(ref to) = self.to {
             let start = *self.start.get_or_insert_with(|| params.elapsed_seconds());
             let elapsed = params.elapsed_seconds() - start;
-    
+
             if elapsed < self.duration.as_secs_f32() {
                 let t = elapsed / self.duration.as_secs_f32();
                 Poll::Ready(Some(T::interpolate(&self.from, to, t)))
@@ -136,7 +136,6 @@ impl<T: Animatable> Action for Animate<T> {
         } else {
             Poll::Ready(None)
         }
-       
     }
 }
 
@@ -193,13 +192,13 @@ where
         if is_done {
             Poll::Ready(None)
         } else {
-            self.idx = if idx + 1 >= self.actions.len() {
-                0
+            if idx + 1 >= self.actions.len() {
+                self.idx = 0;
+                Poll::Ready(Some(()))
             } else {
-                idx + 1
-            };
-
-            Poll::Pending
+                self.idx = idx + 1;
+                Poll::Pending
+            }
         }
     }
 }
