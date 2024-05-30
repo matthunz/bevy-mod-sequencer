@@ -49,7 +49,7 @@ fn run_sequencer(world: &mut World) {
                     sequencer.pending.pop_front();
                     break;
                 }
-                Poll::Pending => {},
+                Poll::Pending => {}
             }
         });
 

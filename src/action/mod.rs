@@ -6,6 +6,10 @@ use std::{marker::PhantomData, task::Poll, time::Duration};
 
 mod map;
 pub use self::map::Map;
+
+mod then;
+pub use self::then::Then;
+
 pub trait Action {
     type In;
 
@@ -26,6 +30,14 @@ pub trait Action {
         B: Action<In = ()>,
     {
         Map::new(self, f)
+    }
+
+    fn then<A>(self, action: A) -> Then<Self, A>
+    where
+        Self: Sized,
+        A: Action<In = Self::In>,
+    {
+        Then::new(self, action)
     }
 }
 

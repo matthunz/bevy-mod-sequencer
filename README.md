@@ -15,7 +15,7 @@ struct Slider;
 
 fn action() -> impl Action<In = (), Out = ()> {
     action::animate(0f32, 400., Duration::from_secs(10))
-        .map(|n| action::from_fn(move || n * 2.))
+        .then(action::animate(400f32, 0., Duration::from_secs(10)))
         .map(|n| {
             action::from_fn(move |mut query: Query<&mut Transform, With<Slider>>| {
                 for mut transform in &mut query {
