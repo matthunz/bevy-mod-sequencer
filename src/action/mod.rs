@@ -1,8 +1,14 @@
+use and_then::AndThen;
 use bevy::{
-    ecs::system::{SystemParam, SystemParamItem, SystemState},
+    ecs::{
+        system::{SystemParam, SystemParamItem, SystemState},
+        world::unsafe_world_cell::UnsafeWorldCell,
+    },
     prelude::*,
 };
-use std::{marker::PhantomData, task::Poll, time::Duration};
+use std::{any::Any, marker::PhantomData, task::Poll, time::Duration};
+
+mod and_then;
 
 mod map;
 pub use self::map::Map;
@@ -23,6 +29,15 @@ pub trait Action {
         params: SystemParamItem<Self::Params>,
     ) -> Poll<Option<Self::Out>>;
 
+    fn and_then<F, A>(self, f: F) -> AndThen<Self, F, A>
+    where
+        Self: Sized,
+        F: FnMut(Self::Out) -> A,
+        A: Action<In = Self::In>,
+    {
+        AndThen::new(self, f)
+    }
+
     fn map<F, B>(self, f: F) -> Map<Self, Self::Out, F, B>
     where
         Self: Sized,
@@ -38,6 +53,47 @@ pub trait Action {
         A: Action<In = Self::In>,
     {
         Then::new(self, action)
+    }
+}
+
+pub struct DynParam<'w> {
+    world: UnsafeWorldCell<'w>,
+}
+
+unsafe impl SystemParam for DynParam<'_> {
+    type State = ();
+
+    type Item<'world, 'state> = DynParam<'world>;
+
+    fn init_state(
+        _world: &mut World,
+        _system_meta: &mut bevy::ecs::system::SystemMeta,
+    ) -> Self::State {
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &bevy::ecs::system::SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: bevy::ecs::component::Tick,
+    ) -> Self::Item<'world, 'state> {
+        DynParam { world }
+    }
+}
+
+impl<I, O> Action for Box<dyn AnyAction<In = I, Out = O>> {
+    type In = I;
+
+    type Params = DynParam<'static>;
+
+    type Out = O;
+
+    fn perform(
+        &mut self,
+        input: Self::In,
+        params: SystemParamItem<Self::Params>,
+    ) -> Poll<Option<Self::Out>> {
+        (&mut **self).perform_any(input, unsafe { params.world.world_mut() })
     }
 }
 
